@@ -1,0 +1,44 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+.env.*
+
+# IDEs & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.virtual_documents/
+
+# Jupyter Notebook & Testing checkpoints
+.ipynb_checkpoints/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Data files (prevent committing datasets to Git)
+data/train/*
+!data/train/.gitkeep
+data/test/*
+!data/test/.gitkeep
+
+# Output files
+output/*
+!output/.gitkeep
+
+# Dataset & Challenge documentation
+ML_dataset/
+problemSTT.pdf
+guidelines.pdf
+*.pdf
+
