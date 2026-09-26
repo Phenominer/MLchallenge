@@ -10,11 +10,12 @@ import sys
 import time
 from pathlib import Path
 
-import lightgbm as lgb
 import numpy as np
 import pandas as pd
 
-from blocking import addr_block, blocking_recall, name_topk
+# blocking (sparse_dot_topn) must load its OpenMP runtime before lightgbm: the reverse order segfaults on macOS
+from blocking import addr_block, blocking_recall, name_topk  # noqa: I001
+import lightgbm as lgb
 from evaluate import SEED, f05_macro, split_ids
 from features import pair_features
 from io_utils import CACHE, ROOT, load_truth
@@ -120,10 +121,15 @@ def run_dev():
 
 def predict(split, name, q, pool):
     """Candidates + model probabilities + decision for query frame q."""
+    c = candidates(split, name, q, pool)  # before unpickling lightgbm: see import note
     m = pickle.load(open(CACHE / "model.pkl", "rb"))
-    c = candidates(split, name, q, pool)
-    X = pair_features(q, pool, c)[m["cols"]]
-    prob = m["model"].predict_proba(X)[:, 1]
+    prob = np.empty(len(c), np.float32)
+    bounds = np.searchsorted(c.q.values, np.arange(0, len(q) + 200_000, 200_000))  # c is sorted by q
+    for s, e in zip(bounds[:-1], bounds[1:]):  # chunk by S1 rows: q-group features stay exact, memory bounded
+        if e > s:
+            X = pair_features(q, pool, c.iloc[s:e])[m["cols"]]
+            prob[s:e] = m["model"].predict_proba(X)[:, 1]
+    log(f"{name}: scored {len(c)} pairs")
     return c, decide(c, prob, *m["th"])
 
 

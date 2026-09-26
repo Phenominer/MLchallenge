@@ -47,3 +47,4 @@ guidelines.pdf
 dataset/
 *.zip
 cache/
+submissions/*/*.tsv

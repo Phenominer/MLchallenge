@@ -29,6 +29,7 @@ def _topk(A, B, k):
     for s in range(0, A.shape[0], 200_000):
         C = sp_matmul_topn(A[s:s + 200_000], Bt, top_n=k, threshold=0.05, n_threads=10).tocoo()
         rows.append(C.row + s), cols.append(C.col), vals.append(C.data)
+        print(f"    topk rows {min(s + 200_000, A.shape[0])}/{A.shape[0]}", flush=True)
     return np.concatenate(rows), np.concatenate(cols), np.concatenate(vals).astype(np.float32)
 
 
@@ -39,10 +40,11 @@ class RecordVectorizer:
     """Name char n-gram TF-IDF + address word TF-IDF, stacked with sqrt weights."""
 
     def __init__(self):
-        """Create the two sub-vectorizers (max_df: drop features in >2000 pool records; they barely discriminate and dominate matmul cost)."""
-        kw = dict(min_df=2, max_df=2000, dtype=np.float32, sublinear_tf=True)
-        self.nv = TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 4), **kw)
-        self.av = TfidfVectorizer(token_pattern=r"\w+", **kw)
+        """Create the two sub-vectorizers (max_df drops features too common to discriminate; they dominate matmul cost)."""
+        kw = dict(min_df=2, dtype=np.float32, sublinear_tf=True)
+        # caps tuned on dev: 4.4x faster top-k for -1.6 pt recall@20 versus no cap
+        self.nv = TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 4), max_df=0.0033, **kw)
+        self.av = TfidfVectorizer(token_pattern=r"\w+", max_df=0.01, **kw)
 
     def _stack(self, N, A):
         """Weighted hstack so that dot product = W*name_cos + (1-W)*addr_cos."""
@@ -59,7 +61,7 @@ class RecordVectorizer:
 
 def country_index(tag: str, pool: pd.DataFrame, country: str):
     """Fit (or load cached) record TF-IDF on one country's pool. Returns (vectorizer, matrix, row ids)."""
-    path = CACHE / f"tfidf3_{tag}_{country}.pkl"
+    path = CACHE / f"tfidf5_{tag}_{country}.pkl"
     if path.exists():
         return pickle.load(open(path, "rb"))
     rows = np.flatnonzero(pool.country.values == country)
