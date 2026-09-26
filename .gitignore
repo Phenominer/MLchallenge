@@ -42,3 +42,8 @@ problemSTT.pdf
 guidelines.pdf
 *.pdf
 
+
+# Challenge data (large)
+dataset/
+*.zip
+cache/
