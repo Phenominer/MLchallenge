@@ -1,0 +1,25 @@
+v1 baseline (2026-09-26)
+
+Pipeline
+- Normalization: lowercase, accent stripping, Indic transliteration (char map + 1,247-token dictionary
+  mined from train pairs), legal suffixes split into their own field, abbreviation expansion, numbers,
+  address key (street number + first 4 chars of street name).
+- Blocking, within the raw country string: one TF-IDF vector per record = name char_wb 3-4 grams
+  (max_df 0.33%) + address word tokens (max_df 1%), 50/50 weight; sparse top-20 (sparse_dot_topn),
+  unioned with an exact address-key join (keys with >30 pool records skipped).
+- Matcher: LightGBM (400 trees, 127 leaves) on 26 pair features, trained on 100k train-split S1 entities
+  (2.27M pairs). Country is not a feature.
+- Decision: one-to-one (each S2/S3 record goes to its best S1), then keep pairs with prob >= 0.70.
+
+Validation (50k dev sample of the 20% hold-out)
+- blocking recall 0.9195, avg candidates per S1 22.7
+- F0.5 = 0.9369 (tuned thresholds 0.70/0.70); 0.934 at 0.5/0.5
+- all-empty floor 0.0558
+
+Test
+- avg candidates per S1 22.8, avg matches per S1 3.05, empty share 7.2% (France 7.3%)
+- validator: PASS (including --check-ids)
+- runtime about 56 min (US top-k 32 min), peak RAM 6.6 GB
+
+Full validation (441,365 hold-out S1 entities)
+- F0.5 = 0.9381, blocking recall 0.9201, avg candidates per S1 22.7
